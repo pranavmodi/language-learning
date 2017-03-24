@@ -10,44 +10,32 @@ import vgg16
 class SenderAgent:
 
     def __init__(self, vocab, embedding_dim = 2):
-
-        self.vgg = vgg16.Vgg16()
-        self.images = tf.placeholder("float", [2, 224, 224, 3])
-        self.vgg.build(self.images)
         self.vocab = vocab
         self.embedding_dim = embedding_dim
 
-    def _build_image_to_vocab_mapper():
+        self._build_image_to_vocab_mapper()
+
+    def _build_image_to_vocab_mapper(self):
         #with tf.variable_scope('image_to_word'):
         # Build a tf graph that -
         # 1. image activations to embedding space
         # 2. sigmoid non-linearity on embedding space
         # 3. fc-weights to concatenated vector for scores over vocacb
-        im_activations = tf.placeholder("float", [2, 1000])
-        weights1 = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
-        embed_im = tf.nn.sigmoid(tf.matmul(im_activations, weights1))
-        concat_im = tf.reshape(embed_im, [1, 2*embedding_dim])
+        with tf.name_scope('sender'):
+            self.im_activations = tf.placeholder("float", [2, 1000])
+            weights1 = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
+            embed_im = tf.nn.sigmoid(tf.matmul(self.im_activations, weights1))
+            concat_im = tf.reshape(embed_im, [1, 2*self.embedding_dim])
 
-        weights2 = tf.random_normal([2*embedding_dim, len(vocab)], stddev=0.1)
-        self.vocab_scores = tf.matmul(concat_im, weights2)
+            weights2 = tf.random_normal([2*self.embedding_dim, len(self.vocab)], stddev=0.1)
+            self.vocab_scores = tf.matmul(concat_im, weights2)
 
 
+    def show_images(self, vgg, sess, target_acts, distractor_acts):
 
-    def show_images(self, sess, target, distractor):
-
-        batch1 = target.reshape((1, 224, 224, 3))
-        batch2 = distractor.reshape((1, 224, 224, 3))
-
-        batch = np.concatenate((batch1, batch2), 0)
-        #feed_dict = {images: batch}
-
-        feed_dict = {self.images: batch}
-
-        with tf.name_scope("content_vgg"):
-            fc8 = sess.run(self.vgg.fc8, feed_dict=feed_dict)
-
-        print(type(fc8))
-
+        batch = np.concatenate([[target_acts, distractor_acts]], axis=0)
+        v_scores = sess.run(self.vocab_scores, feed_dict={self.im_activations : batch})
+        print(v_scores)
         comm_word = [0,1]
         return comm_word
 
@@ -71,10 +59,10 @@ class RecieverAgent:
         # 2. Symbol to embedding space
         # 3. Dot product of symbol and each image
 
-        im_activations = tf.placeholder("float", [2, 1000])
-        weights1 = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
-        embed_im = tf.nn.sigmoid(tf.matmul(im_activations, weights1))
-        concat_im = tf.reshape(embed_im, [1, 2*embedding_dim])
-
-        weights2 = tf.random_normal([2*embedding_dim, len(vocab)], stddev=0.1)
-        self.vocab_scores = tf.matmul(concat_im, weights2)
+        with tf.name_scope('reciever'):
+            im_activations = tf.placeholder("float", [2, 1000])
+            weights1 = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
+            embed_im = tf.nn.sigmoid(tf.matmul(im_activations, weights1))
+            concat_im = tf.reshape(embed_im, [1, 2*embedding_dim])
+            weights2 = tf.random_normal([2*embedding_dim, len(vocab)], stddev=0.1)
+            self.vocab_scores = tf.matmul(concat_im, weights2)

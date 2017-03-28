@@ -31,8 +31,7 @@ class SenderAgent:
             self.vocab_scores = tf.matmul(concat_im, weights2)
 
 
-    def show_images(self, vgg, sess, target_acts, distractor_acts):
-
+    def show_images(self, sess, target_acts, distractor_acts):
         batch = np.concatenate([[target_acts, distractor_acts]], axis=0)
         v_scores = sess.run(self.vocab_scores, feed_dict={self.im_activations : batch})
         print(v_scores)

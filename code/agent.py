@@ -33,7 +33,7 @@ class SenderAgent:
             self.vocab_scores = tf.matmul(concat_im, weights2)
 
 
-    def selection_policy()
+    #def selection_policy()
 
 
     def show_images(self, sess, target_acts, distractor_acts):

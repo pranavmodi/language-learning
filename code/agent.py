@@ -33,11 +33,18 @@ class SenderAgent:
             self.vocab_scores = tf.matmul(concat_im, weights2)
 
 
+    def selection_policy()
+
+
     def show_images(self, sess, target_acts, distractor_acts):
         batch = np.concatenate([target_acts, distractor_acts], axis=0)
         v_scores = sess.run(self.vocab_scores, feed_dict={self.im_activations : batch})[0]
         comm_word = np.argmax(v_scores)
         return comm_word
+
+    def train_sender(sess, samples, rewards):
+        return 0
+
 
 
 class RecieverAgent:

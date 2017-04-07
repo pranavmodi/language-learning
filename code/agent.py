@@ -61,7 +61,6 @@ class RecieverAgent:
 
     def show_images(self, sess, comm_word, image1, image2):
         batch = np.concatenate((image1, image2), axis=0)
-
         image_scores = sess.run(self.image_scores, feed_dict={self.word : comm_word, self.im_activations : batch})
         selected = np.argmax(image_scores)
         return selected

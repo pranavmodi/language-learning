@@ -33,8 +33,10 @@ class Environment:
 
 
     def get_images(self):
-        im1_class, im2_class = np.random.choice(list(range(self.num_classes)), 2, replace=False)
+        #im1_class, im2_class = np.random.choice(list(range(self.num_classes)), 2, replace=False)
+        im1_class, im2_class = [0, 1]
         im1_dir, im2_dir = self.img_dirs[im1_class], self.img_dirs[im2_class]
+        print('im1_dir is ', im1_dir)
         im1_path, im2_path = os.path.join(self.data_dir, 'images', im1_dir), os.path.join(self.data_dir, 'images', im2_dir)
 
         # select random image in dirs

@@ -23,7 +23,8 @@ class Agents:
 
         self.game_scores = tf.placeholder("float", [None, 1])
 
-        self.word_probs = tf.placeholder("float", [len(self.vocab), 1])
+        #self.word_probs = tf.placeholder("float", [len(self.vocab), 1])
+        self.word_probs = tf.placeholder("float", [None, len(self.vocab)])
         self.embedding_dim = embedding_dim
 
         self.word = tf.placeholder(tf.int32, [], "word")
@@ -50,14 +51,16 @@ class Agents:
             ordered_acts = tf.concat_v2([self.target_acts, self.distractor_acts], axis=1)
             h1 = tf.sigmoid(tf.matmul(ordered_acts, weights1))
 
-            self.word_probs = tf.transpose(tf.nn.softmax(tf.matmul(h1, weights2)))
-            self.optimizer = tf.train.AdamOptimizer(0.5)
+            self.word_probs = tf.squeeze(tf.nn.softmax(tf.matmul(h1, weights2)))
+            self.twp = tf.transpose(self.word_probs)
+            self.optimizer = tf.train.AdamOptimizer(0.1)
 
-            self.word = tf.Print(self.word, [self.word], message='This is the word')
-            selected_word_prob = tf.gather(self.word_probs, self.word)
+            self.twp = tf.Print(self.twp, [self.twp], message='word probs transpose')
+            #selected_word_prob = tf.gather(self.word_probs, self.word)
+            selected_word_prob = tf.gather(self.twp, self.word)
 
             #tf.Print(self.word, [self.word], message='gathering the right word prob')
-            self.sender_loss = -tf.log(selected_word_prob) * self.reward
+            self.sender_loss = -1 * tf.log(selected_word_prob) * self.reward
             self.sender_train_op = self.optimizer.minimize(self.sender_loss)
 
             ## Reciever graph
@@ -95,12 +98,9 @@ class Agents:
         target_acts = image_acts[target]
         distractor_acts = image_acts[1 - target]
 
-        word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})[0]
-        print(word_probs)
+        word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})
         word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
         word_text = self.vocab[word]
-        print('selected word', word_text)
-        print(type(word_probs))
         reward = 0
         if target_class == 'dog':
             if word_text == 'Dogword':
@@ -109,14 +109,10 @@ class Agents:
             if word_text == 'Catword':
                 reward = 1.0
 
-        print('the word is ', word)
-        print('the word type', type(word))
-        print(word_probs.shape)
-        #word_probs = np.reshape(word_probs, [-1, len(self.vocab)])
-        #print(word_probs.shape)
-        sess.run([self.sender_train_op, self.sender_loss], feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward, self.word : word, self.word_probs : word_probs})
+        print(target_class, word_text, reward)
+        sess.run([self.sender_train_op, self.sender_loss], feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward, self.word : word})
 
-        return (target, self.word)
+        return reward
 
     def train_sender(sess, samples, rewards):
         return 0

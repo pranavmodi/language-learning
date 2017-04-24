@@ -9,7 +9,7 @@ import vgg16
 ## This class contains the Sender Agent which recieves the activations of the target image and distractor image, maps them into vocabulary words and sends it the reciever
 class Agents:
 
-    def __init__(self, vocab, image_embedding_dim = 2, embedding_dim = 2):
+    def __init__(self, vocab, image_embedding_dim = 2, embedding_dim = 2, temperature=10):
 
         self.vocab = vocab
 
@@ -33,6 +33,7 @@ class Agents:
         self.im_activations = tf.placeholder("float", [2, 1000])
         self.image_scores = tf.placeholder("float", [None, 2])
         self.epsilon = 0.1
+        self.temperature = temperature
 
         print('now building the learning graph')
         #self._build_learning_graph()
@@ -47,12 +48,12 @@ class Agents:
             ## Sender graph
             #weights1 = tf.Variable(tf.random_normal([2000, self.image_embedding_dim], stddev=0.1), name = "sender_w1")
 
-            i_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_t")
-            #d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_d")
+            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_t")
+            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_d")
 
             #weights2 = tf.Variable(tf.random_normal([self.embedding_dim, len(self.vocab)], stddev=0.1))
-            t_embed = tf.sigmoid(tf.matmul(self.target_acts, i_weights))
-            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, i_weights))
+            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights))
+            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights))
             ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
             gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1))
 
@@ -67,10 +68,10 @@ class Agents:
             #t_h1 = tf.sigmoid(tf.matmul(self.target_acts, t_weights))
             #d_h1 = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights))
 
-            self.word_probs = tf.squeeze(tf.nn.softmax(self.vocab_scores))
+            self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)))
             #self.word_probs = tf.squeeze(tf.nn.softmax(tf.matmul(h1, weights2)))
             self.twp = tf.transpose(self.word_probs)
-            self.optimizer = tf.train.AdamOptimizer(0.1)
+            self.optimizer = tf.train.AdamOptimizer(0.5)
 
             self.twp = tf.Print(self.twp, [self.twp], message='word probs transpose')
 

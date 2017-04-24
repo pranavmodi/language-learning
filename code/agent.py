@@ -45,22 +45,41 @@ class Agents:
         with tf.name_scope('sender'):
 
             ## Sender graph
-            weights1 = tf.Variable(tf.random_normal([2000, self.image_embedding_dim], stddev=0.1), name = "sender_w1")
-            weights2 = tf.Variable(tf.random_normal([self.embedding_dim, len(self.vocab)], stddev=0.1))
+            #weights1 = tf.Variable(tf.random_normal([2000, self.image_embedding_dim], stddev=0.1), name = "sender_w1")
 
-            ordered_acts = tf.concat_v2([self.target_acts, self.distractor_acts], axis=1)
-            h1 = tf.sigmoid(tf.matmul(ordered_acts, weights1))
+            i_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_t")
+            #d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_d")
 
-            self.word_probs = tf.squeeze(tf.nn.softmax(tf.matmul(h1, weights2)))
+            #weights2 = tf.Variable(tf.random_normal([self.embedding_dim, len(self.vocab)], stddev=0.1))
+            t_embed = tf.sigmoid(tf.matmul(self.target_acts, i_weights))
+            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, i_weights))
+            ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
+            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1))
+
+            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed)
+
+            self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='vocab scores')
+            #ordered_acts = tf.concat_v2([self.target_acts, self.distractor_acts], axis=1)
+
+            #concat_embedded = tf.concat_v2([self.target_acts, self.distractor_acts], axis=1)
+            #h1 = tf.sigmoid(tf.matmul(ordered_acts, weights1))
+
+            #t_h1 = tf.sigmoid(tf.matmul(self.target_acts, t_weights))
+            #d_h1 = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights))
+
+            self.word_probs = tf.squeeze(tf.nn.softmax(self.vocab_scores))
+            #self.word_probs = tf.squeeze(tf.nn.softmax(tf.matmul(h1, weights2)))
             self.twp = tf.transpose(self.word_probs)
             self.optimizer = tf.train.AdamOptimizer(0.1)
 
             self.twp = tf.Print(self.twp, [self.twp], message='word probs transpose')
+
             #selected_word_prob = tf.gather(self.word_probs, self.word)
             selected_word_prob = tf.gather(self.twp, self.word)
 
             #tf.Print(self.word, [self.word], message='gathering the right word prob')
             self.sender_loss = -1 * tf.log(selected_word_prob) * self.reward
+            self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
             self.sender_train_op = self.optimizer.minimize(self.sender_loss)
 
             ## Reciever graph
@@ -101,7 +120,7 @@ class Agents:
         word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})
         word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
         word_text = self.vocab[word]
-        reward = 0
+        reward = -1.0
         if target_class == 'dog':
             if word_text == 'Dogword':
                 reward = 1.0

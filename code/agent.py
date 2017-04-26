@@ -56,55 +56,38 @@ class Agents:
             gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1))
 
             self.vocab_scores = tf.matmul(ordered_embed, gsi_embed)
-
-            #self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='vocab scores')
-
             self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)))
             self.twp = tf.transpose(self.word_probs)
-            self.optimizer = tf.train.AdamOptimizer(0.5)
-
+            self.sender_optimizer = tf.train.AdamOptimizer(0.1)
             self.twp = tf.Print(self.twp, [self.twp], message='word probs transpose')
             selected_word_prob = tf.gather(self.twp, self.word)
             self.sender_loss = -1 * tf.log(selected_word_prob) * self.reward
-            #self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
-            self.sender_train_op = self.optimizer.minimize(self.sender_loss)
-
+            self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
 
             ## Reciever graph
             vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
             receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
+            receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
 
             self.word_embed = tf.gather(vocab_embedding, self.word)
+            self.word_embed = tf.Print(self.word_embed, [self.word_embed], message='word embedded scores')
 
-            embed_im = tf.matmul(self.image_acts, receiver_weights)
+            embed_im = tf.matmul(self.image_acts, receiver_weights) + receiver_bias
+            embed_im = tf.Print(embed_im, [embed_im], message='embedded images values')
             word_dot = tf.mul(embed_im, self.word_embed)
             image_scores = tf.reduce_sum(word_dot, 1, keep_dims=True)
-            image_scores = tf.reshape(image_scores, [1, 2])a
+            #image_scores = tf.Print(image_scores, [image_scores], message='embedded images values')
+            image_scores = tf.reshape(image_scores, [1, 2])
             image_scores = tf.Print(image_scores, [image_scores], message='Image scores receiver')
-            
-            self.image_probs = tf.squeeze(tf.nn.softmax(tf.div(image_scores, self.temperature)))
+
+            self.image_probs = tf.squeeze(tf.nn.softmax(tf.div(image_scores, 10000)))
 
             self.tip = tf.transpose(self.image_probs)
             self.tip = tf.Print(self.tip, [self.tip], message='image probability transpose')
             selected_image_prob = tf.gather(self.tip, self.selected_image)
-
+            self.receiver_optimizer = tf.train.AdamOptimizer(0.2)
             self.receiver_loss = -1 * tf.log(selected_image_prob) * self.reward
-
-            self.receiver_train_op = self.optimizer.minimize(self.receiver_loss)
-
-            #cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.target, logits=self.reciever_selects))
-
-            #self.train_step = tf.train.GradientDescentOptimizer(0.5).minimize(cross_entropy)
-            #optimizer = tf.train.AdamOptimizer(0.5)
-
-            #correct_prediction = tf.equal(self.reciever_selects, self.target)
-            #accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-            #print(accuracy)
-
-            #self.optimizer = tf.train.RMSPropOptimizer(0.00025, 0.99, 0.0, 1e-6)
-            #self.train_op = self.optimizer.minimize(accuracy)
-
+            self.receiver_train_op = self.receiver_optimizer.minimize(self.receiver_loss)
 
     def show_images(self, sess, image_acts, target, target_class):
         target_acts = image_acts[target]
@@ -124,12 +107,43 @@ class Agents:
         if selected_image == target:
             reward = 1.0
 
-        print(target_class, reward)
-
         ## Run learning operations
         sender_train_op, receiver_train_op, sender_loss, receiver_loss = sess.run([self.sender_train_op, self.receiver_train_op, self.sender_loss, self.receiver_loss], feed_dict={self.image_acts : image_acts, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward, self.word : word, self.selected_image : selected_image})
 
+        return reward, word_text
+
+    def test_receiver(self, sess, image_acts, word, target_ind, target_class):
+        image_probs = sess.run(self.image_probs, feed_dict={self.image_acts : image_acts, self.word : word})
+        print('Image probs', image_probs)
+        selected_image = np.random.choice(np.arange(2), p=image_probs)
+
+        reward = -1.0
+        if selected_image == target_ind:
+            reward = 1.0
+
+        print(target_class, target_ind, selected_image, reward)
+        receiver_train_op, receiver_loss = sess.run([self.receiver_train_op, self.receiver_loss], feed_dict={self.image_acts : image_acts, self.reward : reward, self.word : word, self.selected_image : selected_image})
+
         return reward
 
-    def train_sender(sess, samples, rewards):
-        return 0
+
+    def test_sender(self, sess, image_acts, target, target_class):
+        target_acts = image_acts[target]
+        distractor_acts = image_acts[1 - target]
+
+        word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})
+        print('\nword probs', word_probs)
+        word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
+        word_text = self.vocab[word]
+
+        reward = -1.0
+        if target_class == 'dog':
+            if word_text == 'Dogword':
+                reward = 1.0
+        elif target_class == 'cat':
+            if word_text == 'Catword':
+                reward = 1.0
+
+        sender_train_op, sender_loss = sess.run([self.sender_train_op, self.sender_loss], feed_dict={self.image_acts : image_acts, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward, self.word : word})
+
+        return reward, word_text

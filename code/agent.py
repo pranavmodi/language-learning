@@ -13,21 +13,21 @@ class Agents:
 
         self.vocab = vocab
 
-        self.target_acts = tf.placeholder("float", [None, 1000])
-        self.distractor_acts = tf.placeholder("float", [None, 1000])
-        self.image_acts = tf.placeholder("float", [None, 2000])
+        self.target_acts = tf.placeholder("float", [None, 1000], name="target_acts")
+        self.distractor_acts = tf.placeholder("float", [None, 1000], name="distractor_acts")
+        self.image_acts = tf.placeholder("float", [None, 2000], name="combined_acts")
 
-        self.target = tf.placeholder(tf.int32, [None, 1])
+        #self.target = tf.placeholder(tf.int32, [None, 1])
         self.image_embedding_dim = image_embedding_dim
 
-        self.word_probs = tf.placeholder("float", [None, len(self.vocab)])
+        self.word_probs = tf.placeholder("float", [None, len(self.vocab)], name="word_probs")
         self.embedding_dim = embedding_dim
 
         self.word = tf.placeholder(tf.int32, [None, 1], "word")
         self.selection = tf.placeholder(tf.int32, [None, 1], "selection")
         self.reward = tf.placeholder(tf.float32, [None, 1], "reward")
 
-        self.image_probs = tf.placeholder("float", [None, 2])
+        self.image_probs = tf.placeholder("float", [None, 2], name="image_probs")
         self.epsilon = 0.1
         self.temperature = temperature
 
@@ -52,22 +52,23 @@ class Agents:
             #target_acts = tf.map_fn(lambda x: self.image_acts, axis=0)
             #distractor_acts = tf.map_fn(lambda x: self.image_acts, axis=0)
 
-            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights))
-            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights))
+            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name = "t_embed")
+            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name = "d_embed")
             ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
-            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1))
+            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1), name = "gsi_embed")
 
-            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed)
+            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed, name="vocab_scores")
             self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='sender vocab scores')
             self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)))
             self.twp = tf.transpose(self.word_probs)
-            self.sender_optimizer = tf.train.AdamOptimizer(0.5)
+            self.sender_optimizer = tf.train.AdamOptimizer(0.2)
             self.twp = tf.Print(self.twp, [tf.shape(tf.transpose(self.twp))], message='word probs transpose')
             selected_word_prob = tf.gather(self.twp, self.word)
             self.sender_loss = tf.reduce_sum(-1 * tf.log(selected_word_prob) * self.reward)
             self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
             self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
-
+            
+        with tf.name_scope('reciever'):
             ## Reciever graph
             vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
             receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))

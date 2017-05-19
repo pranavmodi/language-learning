@@ -13,26 +13,26 @@ class Agents:
 
         self.vocab = vocab
 
-        self.target_acts = tf.placeholder("float", [None, 1000])
-        self.distractor_acts = tf.placeholder("float", [None, 1000])
-        self.image_acts = tf.placeholder("float", [2, 1000])
+        self.target_acts = tf.placeholder("float", [None, 1000], name="target_acts")
+        self.distractor_acts = tf.placeholder("float", [None, 1000], name="distractor_acts")
+        self.image_acts = tf.placeholder("float", [2, 1000], name="combined_acts")
 
         #self.target = tf.placeholder(tf.int64, [None, 1])
-        self.target = tf.placeholder("float", [None, 1])
+        self.target = tf.placeholder("float", [None, 1], name="target")
         self.image_embedding_dim = image_embedding_dim
 
         self.game_scores = tf.placeholder("float", [None, 1])
 
         #self.word_probs = tf.placeholder("float", [len(self.vocab), 1])
-        self.word_probs = tf.placeholder("float", [None, len(self.vocab)])
+        self.word_probs = tf.placeholder("float", [None, len(self.vocab)], name="word_probs")
         self.embedding_dim = embedding_dim
 
-        self.word = tf.placeholder(tf.int32, [], "word")
+        self.word = tf.placeholder(tf.int32, [], name="word")
         self.selected_image = tf.placeholder(tf.int32, [], "image")
-        self.reward = tf.placeholder(tf.float32, [], "reward")
+        self.reward = tf.placeholder(tf.float32, [], name="reward")
 
-        self.im_activations = tf.placeholder("float", [2, 1000])
-        self.image_scores = tf.placeholder("float", [None, 2])
+        self.im_activations = tf.placeholder("float", [2, 1000], name="im_activations")
+        self.image_scores = tf.placeholder("float", [None, 2], name="image_scores")
         self.epsilon = 0.1
         self.temperature = temperature
 
@@ -50,21 +50,21 @@ class Agents:
             t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_t")
             d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_d")
 
-            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights))
-            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights))
-            ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
-            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1))
+            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name="t_embed")
+            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name="d_embed")
+            ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1, name="ordered_embed")
+            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1), name="gsi_embed")
 
-            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed)
-            self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)))
-            self.twp = tf.transpose(self.word_probs)
+            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed, name="vocab_scores")
+            self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)), name="word_probs")
+            self.twp = tf.transpose(self.word_probs, name="twp")
             self.sender_optimizer = tf.train.AdamOptimizer(0.1)
             self.twp = tf.Print(self.twp, [self.twp], message='word probs transpose')
-            selected_word_prob = tf.gather(self.twp, self.word)
+            selected_word_prob = tf.gather(self.twp, self.word, name="selected_word_prob")
             self.sender_loss = -1 * tf.log(selected_word_prob) * self.reward
             self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
 
-        with tf.name_scope('sender'):
+        with tf.name_scope('reciever'):
             ## Reciever graph
             vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
             receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))

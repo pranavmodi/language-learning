@@ -64,6 +64,7 @@ class Agents:
             self.sender_loss = -1 * tf.log(selected_word_prob) * self.reward
             self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
 
+        with tf.name_scope('sender'):
             ## Reciever graph
             vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
             receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))

@@ -59,12 +59,12 @@ class Agents:
 
             self.vocab_scores = tf.matmul(ordered_embed, gsi_embed, name="vocab_scores")
             self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='sender vocab scores')
-            self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)))
-            self.twp = tf.transpose(self.word_probs)
+            self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)), name="word_probs")
+            self.twp = tf.transpose(self.word_probs, name="twp")
             self.sender_optimizer = tf.train.AdamOptimizer(0.2)
             self.twp = tf.Print(self.twp, [tf.shape(tf.transpose(self.twp))], message='word probs transpose')
             selected_word_prob = tf.gather(self.twp, self.word)
-            self.sender_loss = tf.reduce_sum(-1 * tf.log(selected_word_prob) * self.reward)
+            self.sender_loss = tf.reduce_sum(-1 * tf.log(selected_word_prob) * self.reward, name="sender_loss")
             self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
             self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
             

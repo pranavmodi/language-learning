@@ -138,12 +138,12 @@ class Agents:
     def update(self, sess, batch):
         acts_batch, target_acts, distractor_acts, target_batch, word_batch, selection_batch, reward_batch = map(lambda x: np.squeeze(np.array(x)), zip(*batch))
 
-        print('This is the target_acts shape: ', target_acts.shape)
-        print('The target batch contains these: ', target_batch)
-
         reward_batch = np.reshape(reward_batch, [-1, 1])
         selection_batch = np.reshape(selection_batch, [-1, 1])
         word_batch = np.reshape(word_batch, [-1, 1])
+        target_acts = np.reshape(target_acts, [-1, 1000])
+        distractor_acts = np.reshape(distractor_acts, [-1, 1000])
+        acts_batch = np.reshape(acts_batch, [-1, 2000])
 
         ## Update sender
         sender_train_op, receiver_train_op, sender_loss, receiver_loss = sess.run([self.sender_train_op, self.receiver_train_op, self.sender_loss, self.receiver_loss], feed_dict={self.image_acts : acts_batch, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward_batch, self.word : word_batch, self.selection : selection_batch})

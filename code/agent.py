@@ -66,16 +66,16 @@ class Agents:
 
         with tf.name_scope('reciever'):
             ## Reciever graph
-            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
-            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
+            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1), name="vocab_embedding")
+            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1), name="reciever_weights")
             receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
 
-            self.word_embed = tf.gather(vocab_embedding, self.word)
+            self.word_embed = tf.gather(vocab_embedding, self.word, name="word_embed")
             self.word_embed = tf.Print(self.word_embed, [self.word_embed], message='word embedded scores')
 
             embed_im = tf.matmul(self.image_acts, receiver_weights) + receiver_bias
             embed_im = tf.Print(embed_im, [embed_im], message='embedded images values')
-            word_dot = tf.mul(embed_im, self.word_embed)
+            word_dot = tf.mul(embed_im, self.word_embed, name="word_dot")
             image_scores = tf.reduce_sum(word_dot, 1, keep_dims=True)
             #image_scores = tf.Print(image_scores, [image_scores], message='embedded images values')
             image_scores = tf.reshape(image_scores, [1, 2])
@@ -85,24 +85,30 @@ class Agents:
 
             self.tip = tf.transpose(self.image_probs)
             self.tip = tf.Print(self.tip, [self.tip], message='image probability transpose')
-            selected_image_prob = tf.gather(self.tip, self.selected_image)
+            selected_image_prob = tf.gather(self.tip, self.selected_image, name="selected_image_prob")
             self.receiver_optimizer = tf.train.AdamOptimizer(0.2)
             self.receiver_loss = -1 * tf.log(selected_image_prob) * self.reward
             self.receiver_train_op = self.receiver_optimizer.minimize(self.receiver_loss)
 
     def show_images(self, sess, image_acts, target, target_class):
+        epsilon = 0.05
         target_acts = image_acts[target]
         distractor_acts = image_acts[1 - target]
 
         word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})
         print('word probs', word_probs)
-        word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
+        #word_ep_greedy = get_epsilon_greedy_probs(word_probs, epsilon)
+        print('word greedy probs', word_ep_greedy)
+        word = np.random.choice(np.arange(len(self.vocab)), p=word_ep_greedy)
         word_text = self.vocab[word]
 
         ## Receiver select images op
         image_probs = sess.run(self.image_probs, feed_dict={self.image_acts : image_acts, self.word : word})
         print('Image probs', image_probs)
-        selected_image = np.random.choice(np.arange(2), p=image_probs)
+
+        ep_greedy_probs = get_epsilon_greedy_probs(image_probs, epsilon)
+        selected_image = np.random.choice(np.arange(2), p=ep_greedy_probs)
+        print('epsilon greedy probs', ep_greedy_probs)
 
         reward = -1.0
         if selected_image == target:
@@ -148,3 +154,10 @@ class Agents:
         sender_train_op, sender_loss = sess.run([self.sender_train_op, self.sender_loss], feed_dict={self.image_acts : image_acts, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward, self.word : word})
 
         return reward, word_text
+
+
+def get_epsilon_greedy_probs(image_probs, epsilon):
+    i = np.argmax(image_probs)
+    image_probs[i] = image_probs[i] - epsilon
+    image_probs += np.repeat(epsilon/len(image_probs), len(image_probs))
+    return image_probs

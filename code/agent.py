@@ -42,8 +42,8 @@ class Agents:
         with tf.name_scope('sender'):
 
             ## Sender graph
-            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_t")
-            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.1), name = "sender_d")
+            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_t")
+            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_d")
 
             #distractor = 1 - self.target
             #target_indices = tf.map_fn(lambda x: tf.range(x * 1000, (x + 1) * 1000), self.target)
@@ -55,7 +55,7 @@ class Agents:
             t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name = "t_embed")
             d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name = "d_embed")
             ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
-            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.1), name = "gsi_embed")
+            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.01), name = "gsi_embed")
 
             self.vocab_scores = tf.matmul(ordered_embed, gsi_embed, name="vocab_scores")
             self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='sender vocab scores')
@@ -70,8 +70,8 @@ class Agents:
             
         with tf.name_scope('reciever'):
             ## Reciever graph
-            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.1))
-            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.1))
+            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.01))
+            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.01))
             receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
 
             self.word_embed = tf.squeeze(tf.gather(vocab_embedding, self.word))

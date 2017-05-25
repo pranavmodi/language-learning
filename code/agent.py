@@ -42,8 +42,8 @@ class Agents:
         with tf.name_scope('sender'):
 
             ## Sender graph
-            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_t")
-            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_d")
+            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.005), name = "sender_t")
+            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.005), name = "sender_d")
 
             #distractor = 1 - self.target
             #target_indices = tf.map_fn(lambda x: tf.range(x * 1000, (x + 1) * 1000), self.target)
@@ -52,12 +52,12 @@ class Agents:
             #target_acts = tf.map_fn(lambda x: self.image_acts, axis=0)
             #distractor_acts = tf.map_fn(lambda x: self.image_acts, axis=0)
 
-            t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name = "t_embed")
-            d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name = "d_embed")
-            ordered_embed = tf.concat_v2([t_embed, d_embed], axis=1)
-            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.01), name = "gsi_embed")
+            self.t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name = "t_embed")
+            self.d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name = "d_embed")
+            self.ordered_embed = tf.concat_v2([self.t_embed, self.d_embed], axis=1)
+            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.005), name = "gsi_embed")
 
-            self.vocab_scores = tf.matmul(ordered_embed, gsi_embed, name="vocab_scores")
+            self.vocab_scores = tf.matmul(self.ordered_embed, gsi_embed, name="vocab_scores")
             self.vocab_scores = tf.Print(self.vocab_scores, [self.vocab_scores], message='sender vocab scores')
             self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)), name="word_probs")
             self.twp = tf.transpose(self.word_probs, name="twp")
@@ -67,11 +67,11 @@ class Agents:
             self.sender_loss = tf.reduce_sum(-1 * tf.log(selected_word_prob) * self.reward, name="sender_loss")
             self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
             self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
-            
+
         with tf.name_scope('reciever'):
             ## Reciever graph
-            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.01))
-            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.01))
+            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.005))
+            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.005))
             receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
 
             self.word_embed = tf.squeeze(tf.gather(vocab_embedding, self.word))
@@ -111,6 +111,23 @@ class Agents:
             self.receiver_loss = tf.Print(self.receiver_loss, [self.receiver_loss], message='receiver loss')
             self.receiver_train_op = self.receiver_optimizer.minimize(self.receiver_loss)
 
+        with tf.name_scope('summaries'):
+            tf.summary.scalar('sender_loss', self.sender_loss)
+            reward = tf.reduce_sum(self.reward)
+            tf.summary.scalar('reward', reward)
+            t_embed_mean = tf.reduce_mean(tf.reduce_mean(self.t_embed))
+            d_embed_mean = tf.reduce_mean(tf.reduce_mean(self.d_embed))
+            tf.summary.scalar('t_embed', t_embed_mean)
+            tf.summary.scalar('d_embed', d_embed_mean)
+            print('created the scalar for tensorboard')
+
+        with tf.name_scope('histograms'):
+            tf.summary.histogram('gsi_embed', gsi_embed)
+
+        self.summary = tf.summary.merge_all()
+
+
+
     def show_images(self, sess, image_acts, target_acts, distractor_acts, target, target_class):
         #target_acts = image_acts[target]
         #distractor_acts = image_acts[1 - target]
@@ -146,12 +163,9 @@ class Agents:
         distractor_acts = np.reshape(distractor_acts, [-1, 1000])
         acts_batch = np.reshape(acts_batch, [-1, 2000])
 
-        ## Update sender
-        sender_train_op, receiver_train_op, sender_loss, receiver_loss = sess.run([self.sender_train_op, self.receiver_train_op, self.sender_loss, self.receiver_loss], feed_dict={self.image_acts : acts_batch, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward_batch, self.word : word_batch, self.selection : selection_batch})
+        sender_train_op, receiver_train_op, sender_loss, receiver_loss, summary = sess.run([self.sender_train_op, self.receiver_train_op, self.sender_loss, self.receiver_loss, self.summary], feed_dict={self.image_acts : acts_batch, self.target_acts : target_acts, self.distractor_acts : distractor_acts, self.reward : reward_batch, self.word : word_batch, self.selection : selection_batch})
 
-        ## Update receiver
-
-
+        return summary
 
 
     def test_receiver(self, sess, image_acts, word, target_ind, target_class):

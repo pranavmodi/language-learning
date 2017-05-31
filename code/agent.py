@@ -66,26 +66,26 @@ class Agents:
             #self.word_probs = tf.squeeze(tf.nn.softmax(tf.div(self.vocab_scores, self.temperature)), name="word_probs")
             self.word_probs = tf.nn.softmax(tf.div(self.vocab_scores, self.temperature), name="word_probs")
             self.word_probs = tf.Print(self.word_probs, [tf.shape(self.word_probs)], message='word probs shape')
-            self.twp = tf.transpose(self.word_probs, name="twp")
-            self.sender_optimizer = tf.train.AdamOptimizer(0.2)
-            self.twp = tf.Print(self.twp, [tf.shape(self.twp)], message='word probs transpose')
+            #self.twp = tf.transpose(self.word_probs, name="twp")
+            self.sender_optimizer = tf.train.AdamOptimizer(0.5)
+            #self.twp = tf.Print(self.twp, [tf.shape(self.twp)], message='word probs transpose')
             #selected_word_prob = tf.gather(self.twp, self.word)
             word_probs_flattened = tf.reshape(self.word_probs, [-1])
-            #wp_len = word_probs_flattened.get_shape()[0]
             selected_inds = tf.range(0, tf.shape(self.word_probs)[0]) * len(self.vocab) + self.word
             selected_word_prob = tf.gather(tf.reshape(self.word_probs, [-1]), selected_inds)
             #selected_word_prob = tf.gather(self.word_probs, self.word)
             selected_word_prob = tf.Print(selected_word_prob, [tf.shape(selected_word_prob)], message='selected word prob shape')
-            #self.sender_loss = tf.reduce_sum(-1 * tf.log(selected_word_prob) * self.reward, name="sender_loss")
 
             self.reward = tf.Print(self.reward, [tf.shape(self.reward)], message='reward shape')
-            self.sender_loss = -1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), self.reward, name="sender_loss")
+            self.sender_loss = tf.reduce_sum(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), self.reward, name="sender_loss"))
             print(type(self.word_probs), tf.shape(self.word_probs))
             print('word', self.word)
             print('selected word probs', selected_word_prob)
             print('reward', self.reward)
             print('sender loss', self.sender_loss)
             grads_and_vars = self.sender_optimizer.compute_gradients(self.sender_loss)
+
+            tvs = tf.trainable_variables()
 
             #print('coming till here now', type(grads_and_vars[0]), len(grads_and_vars[0]), grads_and_vars)
             #grads_and_vars = tf.Print(grads_and_vars, [grads_and_vars], message='gradients list')
@@ -117,7 +117,7 @@ class Agents:
             im1_embed = tf.matmul(im1, receiver_weights) + receiver_bias
             im2_embed = tf.matmul(im2, receiver_weights) + receiver_bias
 
-            embed_im = tf.concat_v2([im1_embed, im2_embed], axis=0)
+            #embed_im = tf.concat_v2([im1_embed, im2_embed], axis=0)
             im1_dot = tf.mul(im1_embed, self.word_embed)
             im2_dot = tf.mul(im2_embed, self.word_embed)
 
@@ -132,11 +132,13 @@ class Agents:
             #image_scores = tf.Print(image_scores, [tf.shape(image_scores)], message='Image scores shape')
 
             self.image_probs = tf.squeeze(tf.nn.softmax(tf.div(image_scores, 10000)))
-            #self.image_probs = tf.Print(self.image_probs, [tf.shape(self.image_probs)], message='Image probs shape')
-            self.tip = tf.transpose(self.image_probs)
-            #self.tip = tf.Print(self.tip, [self.tip], message='image probability transpose')
-            selected_image_prob = tf.gather(self.tip, self.selection)
-            self.receiver_optimizer = tf.train.AdamOptimizer(0.2)
+            self.image_probs = tf.Print(self.image_probs, [tf.shape(self.image_probs)], message='Image probs shapeeeeeeeee')
+            image_probs_flattened = tf.reshape(self.image_probs, [-1])
+            selected_inds = tf.range(0, tf.shape(self.image_probs)[0]) * len(self.vocab) + self.selection
+            selected_image_prob = tf.gather(tf.reshape(self.image_probs, [-1]), selected_inds)
+            selected_image_prob = tf.Print(selected_image_prob, [tf.shape(selected_image_prob)], message='selected image probs shape')
+            
+            self.receiver_optimizer = tf.train.AdamOptimizer(0.5)
             self.receiver_loss = tf.reduce_sum(-1 * tf.log(selected_image_prob) * self.reward)
             self.receiver_loss = tf.Print(self.receiver_loss, [self.receiver_loss], message='receiver loss')
 

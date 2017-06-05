@@ -39,84 +39,129 @@ class Agents:
         with tf.name_scope('sender'):
 
             ## Sender graph
-            t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.005), name = "sender_t")
-            d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.005), name = "sender_d")
+            with tf.name_scope('ordered_embed'):
+                t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_t")
+                t_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]), trainable=True, name="t_bias")
+                d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_d")
+                d_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]), trainable=True, name="d_bias")
 
-            self.t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights), name = "t_embed")
-            self.d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights), name = "d_embed")
-            self.ordered_embed = tf.concat_v2([self.t_embed, self.d_embed], axis=1)
-            gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.005), name = "gsi_embed")
+                self.t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights) + t_bias, name = "t_embed") ## Add bias?
+                self.d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights) + d_bias, name = "d_embed") ## Add bias?
+                self.ordered_embed = tf.concat_v2([self.t_embed, self.d_embed], axis=1)
 
-            self.vocab_scores = tf.matmul(self.ordered_embed, gsi_embed, name="vocab_scores")
-            self.word_probs = tf.nn.softmax(tf.div(self.vocab_scores, self.temperature), name="word_probs")
-            self.word_probs = tf.Print(self.word_probs, [tf.shape(self.word_probs)], message='word probs shape')
+            with tf.name_scope('word_probs'):
+                gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.01), name = "gsi_embed")
+                self.vocab_scores = tf.matmul(self.ordered_embed, gsi_embed, name="vocab_scores")
+                self.word_probs = tf.nn.softmax(tf.div(self.vocab_scores, self.temperature), name="word_probs")
+                self.word_probs = tf.Print(self.word_probs, [tf.shape(self.word_probs)], message='word probs shape')
 
-            self.sender_optimizer = tf.train.AdamOptimizer(0.5)
-            word_probs_flattened = tf.reshape(self.word_probs, [-1])
-            selected_inds = tf.range(0, tf.shape(self.word_probs)[0]) * len(self.vocab) + self.word
-            selected_word_prob = tf.gather(tf.reshape(self.word_probs, [-1]), selected_inds)
-            selected_word_prob = tf.Print(selected_word_prob, [tf.shape(selected_word_prob)], message='selected word prob shape')
+            with tf.name_scope('sender_optimization'):
+                self.sender_optimizer = tf.train.AdamOptimizer(0.2)
+                word_probs_flattened = tf.reshape(self.word_probs, [-1])
+                selected_inds = tf.range(0, tf.shape(self.word_probs)[0]) * len(self.vocab) + self.word
+                selected_word_prob = tf.gather(tf.reshape(self.word_probs, [-1]), selected_inds)
+                selected_word_prob = tf.Print(selected_word_prob, [tf.shape(selected_word_prob)], message='selected word prob shape')
 
-            self.reward = tf.Print(self.reward, [tf.shape(self.reward)], message='reward shape')
-            self.sender_loss = tf.reduce_sum(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), self.reward, name="sender_loss"))
-            grads_and_vars = self.sender_optimizer.compute_gradients(self.sender_loss)
-            tvs = tf.trainable_variables()
+                self.reward = tf.Print(self.reward, [tf.shape(self.reward)], message='reward shape')
+                self.sender_loss = tf.reduce_mean(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), self.reward, name="sender_loss"))
+                #grads_and_vars = self.sender_optimizer.compute_gradients(self.sender_loss)
 
-            self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
-            self.sender_loss = tf.Print(self.sender_loss, [tf.shape(self.sender_loss)], message='shape of sender loss')
-            gvp = [tf.Print(gv[0], [tf.shape(gv[0])], 'GV shape: ') for gv in grads_and_vars]
-            self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
+                self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
+                self.sender_loss = tf.Print(self.sender_loss, [tf.shape(self.sender_loss)], message='shape of sender loss')
+                #gvp = [tf.Print(gv[0], [tf.shape(gv[0])], 'GV shape: ') for gv in grads_and_vars]
+                self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
 
 
-        with tf.name_scope('reciever'):
+        with tf.name_scope('receiver'):
             ## Reciever graph
-            vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.005))
-            receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.005))
-            receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
 
-            self.word_embed = tf.squeeze(tf.gather(vocab_embedding, self.word))
+            with tf.name_scope('image_embed'):
+                receiver_weights = tf.Variable(tf.random_normal([1000, self.embedding_dim], stddev=0.01))
+                receiver_bias = tf.Variable(tf.zeros([1, self.embedding_dim]), trainable=True, name="receiver_bias")
+                ti_acts = tf.transpose(self.image_acts)
+                im1 = tf.transpose(tf.gather(ti_acts, tf.range(0,1000)))
+                im2 = tf.transpose(tf.gather(ti_acts, tf.range(1000,2000)))
 
-            ti_acts = tf.transpose(self.image_acts)
-            im1 = tf.transpose(tf.gather(ti_acts, tf.range(0,1000)))
-            im2 = tf.transpose(tf.gather(ti_acts, tf.range(1000,2000)))
+                im1_embed = tf.matmul(im1, receiver_weights) + receiver_bias
+                im2_embed = tf.matmul(im2, receiver_weights) + receiver_bias
 
-            im1_embed = tf.matmul(im1, receiver_weights) + receiver_bias
-            im2_embed = tf.matmul(im2, receiver_weights) + receiver_bias
+            with tf.name_scope('image_select'):
+                vocab_embedding = tf.Variable(tf.random_normal([len(self.vocab), self.embedding_dim], stddev=0.01))
+                self.word_embed = tf.squeeze(tf.gather(vocab_embedding, self.word))
+                im1_dot = tf.mul(im1_embed, self.word_embed)
+                im2_dot = tf.mul(im2_embed, self.word_embed)
+                im1_scores = tf.reduce_sum(im1_dot, 1)
+                im1_scores = tf.reshape(im1_scores, [-1, 1])
+                im2_scores = tf.reduce_sum(im2_dot, 1)
+                im2_scores = tf.reshape(im2_scores, [-1, 1])
+                image_scores = tf.concat_v2([im1_scores, im2_scores], axis=1)
 
-            im1_dot = tf.mul(im1_embed, self.word_embed)
-            im2_dot = tf.mul(im2_embed, self.word_embed)
+                self.image_probs = tf.squeeze(tf.nn.softmax(tf.div(image_scores, 10000)))
+                self.image_probs = tf.Print(self.image_probs, [tf.shape(self.image_probs)], message='Image probs shapeeeeeeeee')
+                image_probs_flattened = tf.reshape(self.image_probs, [-1])
+                selected_inds = tf.range(0, tf.shape(self.image_probs)[0]) * len(self.vocab) + self.selection
+                selected_image_prob = tf.gather(tf.reshape(self.image_probs, [-1]), selected_inds)
+                selected_image_prob = tf.Print(selected_image_prob, [tf.shape(selected_image_prob)], message='selected image probs shape')
 
-            im1_scores = tf.reduce_sum(im1_dot, 1)
-            im1_scores = tf.reshape(im1_scores, [-1, 1])
-            im2_scores = tf.reduce_sum(im2_dot, 1)
-            im2_scores = tf.reshape(im2_scores, [-1, 1])
+            with tf.name_scope('receiver_optimize'):
+                self.receiver_optimizer = tf.train.AdamOptimizer(0.2)
+                self.receiver_loss = tf.reduce_mean(-1 * tf.log(selected_image_prob) * self.reward)
+                self.receiver_loss = tf.Print(self.receiver_loss, [self.receiver_loss], message='receiver loss')
+                self.receiver_train_op = self.receiver_optimizer.minimize(self.receiver_loss)
 
-            image_scores = tf.concat_v2([im1_scores, im2_scores], axis=1)
+        with tf.name_scope('sender_weights'):
+            self.plot_var_summary('t_weights', t_weights)
+            self.plot_var_summary('d_weights', d_weights)
+            self.plot_var_summary('gsi_embed', gsi_embed)
+            self.plot_var_summary('t_bias', t_bias)
+            self.plot_var_summary('d_bias', d_bias)
+            self.plot_var_summary('gsi_embed', gsi_embed)
 
-            self.image_probs = tf.squeeze(tf.nn.softmax(tf.div(image_scores, 10000)))
-            self.image_probs = tf.Print(self.image_probs, [tf.shape(self.image_probs)], message='Image probs shapeeeeeeeee')
-            image_probs_flattened = tf.reshape(self.image_probs, [-1])
-            selected_inds = tf.range(0, tf.shape(self.image_probs)[0]) * len(self.vocab) + self.selection
-            selected_image_prob = tf.gather(tf.reshape(self.image_probs, [-1]), selected_inds)
-            selected_image_prob = tf.Print(selected_image_prob, [tf.shape(selected_image_prob)], message='selected image probs shape')
+        with tf.name_scope('receiver_weights'):
+            self.plot_var_summary('receiver_weights', receiver_weights)
+            self.plot_var_summary('receiver_bias', receiver_bias)
+            self.plot_var_summary('vocab_embedding', vocab_embedding)
+
+        with tf.name_scope('sender_activations'):
+            self.plot_var_summary('t_embed', self.t_embed)
+            self.plot_var_summary('d_embed', self.d_embed)
+            self.plot_var_summary('ordered_embed', self.ordered_embed)
+            self.plot_var_summary('vocab_scores', self.vocab_scores)
+            tf.summary.scalar('sender_loss', self.sender_loss)
+
+        with tf.name_scope('receiver_activations'):
+            self.plot_var_summary('im1_embed', im1_embed)
+            self.plot_var_summary('im2_embed', im2_embed)
+            self.plot_var_summary('im1_dot', im1_dot)
+            self.plot_var_summary('im2_dot', im2_dot)
+            tf.summary.scalar('receiver_loss', self.receiver_loss)
             
-            self.receiver_optimizer = tf.train.AdamOptimizer(0.5)
-            self.receiver_loss = tf.reduce_sum(-1 * tf.log(selected_image_prob) * self.reward)
-            self.receiver_loss = tf.Print(self.receiver_loss, [self.receiver_loss], message='receiver loss')
+        with tf.name_scope('sender_gradients'):
+            sgrads = tf.gradients(self.sender_loss, tf.trainable_variables())
+            sgrads = list(zip(sgrads, tf.trainable_variables()))
+            for grad, var in sgrads:
+                #print('one of the vars', var.name)
+                if grad is not None:
+                    tf.summary.histogram(var.name + '/gradient', grad)
 
-            self.receiver_train_op = self.receiver_optimizer.minimize(self.receiver_loss)
 
-        with tf.name_scope('summaries'):
-            reward = tf.reduce_sum(self.reward)
-            tf.summary.scalar('reward', reward)
-            t_embed_mean = tf.reduce_mean(tf.reduce_mean(self.t_embed))
-            d_embed_mean = tf.reduce_mean(tf.reduce_mean(self.d_embed))
-            tf.summary.scalar('t_embed', t_embed_mean)
-            tf.summary.scalar('d_embed', d_embed_mean)
-            tf.summary.scalar('vocab_scores_sum', tf.reduce_sum(self.vocab_scores))
-            tf.summary.histogram('vocab_socres_hist', self.vocab_scores)
-            self.summary = tf.summary.merge_all()
+        with tf.name_scope('receiver_gradients'):
+            rgrads = tf.gradients(self.receiver_loss, tf.trainable_variables())
+            rgrads = list(zip(rgrads, tf.trainable_variables()))
+            for grad, var in rgrads:
+                #print('one of the vars', var.name)
+                if grad is not None:
+                    tf.summary.histogram(var.name + '/gradient', grad)
 
+        self.summary = tf.summary.merge_all()
+
+
+    def plot_var_summary(self, varname, var):
+        var_mean = tf.reduce_mean(var)
+        var_std = tf.sqrt(tf.reduce_mean(tf.square(var - var_mean)))
+        tf.summary.scalar(varname + '_mean', var_mean)
+        tf.summary.scalar(varname + '_std', var_std)
+        tf.summary.histogram(varname + '_hist', var)
 
 
     def show_images(self, sess, image_acts, target_acts, distractor_acts, target, target_class):

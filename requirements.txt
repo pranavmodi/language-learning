@@ -1,0 +1,4 @@
+tensorflow==1.1.0
+numpy==1.14.5
+skimage==0.13.0
+yaml==3.12

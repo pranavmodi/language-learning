@@ -145,7 +145,7 @@ def run_game(config):
             ## for Sender - take action in reinforcement learning terms
 
             reward, word, selection, word_probs, image_probs = agents.show_images(sess, shuffled_acts, target_acts, distractor_acts, target, target_class)
-            print(word_probs)
+            #print(word_probs)
 
             batch.append(Game(shuffled_acts, target_acts, distractor_acts, word_probs, image_probs, target, word, selection, reward))
 

@@ -1,0 +1,17 @@
+vocab: 5
+iterations: 20000
+mini_batch_size: 10
+word_embedding_dim: 10
+image_embedding_dim: 10
+vgg16_weights: vgg16.npy
+learning_rate: 0.5
+
+log_path: logs
+
+data_dir: data
+image_dirs:
+    - dog
+    - cat
+vocab:
+    - dogword
+    - catword

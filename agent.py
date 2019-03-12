@@ -189,6 +189,10 @@ class Agents:
 
         word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})[0]
         print('word probs', word_probs)
+        word_probs = word_probs + [0.1, 0.1]
+        word_probs = word_probs / np.sum(word_probs)
+        print('new word probs', word_probs)
+        
         word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
         word = np.reshape(np.array(word), [1, -1])
 

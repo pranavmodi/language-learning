@@ -14,32 +14,13 @@ from vgg16 import Vgg16
 from collections import deque, namedtuple
 
 
-def load_model(npy_path):
-    v = vgg16(npy_path)
-
-
-def some_shit():
-
-    save_path = os.path.join('..', 'model', run_num + '.ckpt')
-    load_model = False
-    load_path = os.path.join('..', 'model', '16.ckpt')
-
-    num_words = 2
-    vocab = ['W'+str(i) for i in range(num_words)]
-
-    #vocab = ['Catword', 'Dogword']
-    embed_dim = 2
-    print(vocab)
-
-
 def get_image_activations(sess, vgg, image, placeholder):
-    #image_pl = tf.placeholder("float32", [1, 224, 224, 3])
     batch = image.reshape((1, 224, 224, 3))
     feed_dict = {placeholder: batch}
-    
+
     with tf.name_scope("content_vgg"):
         fc8 = sess.run(vgg.fc8, feed_dict=feed_dict)
-    
+
     return(fc8)
 
 
@@ -82,8 +63,11 @@ def run_game(config):
     image_dirs = config['image_dirs']
     vocab = config['vocab']
     log_path = config['log_path']
-    vgg16_weights = config['vgg16_weights']
+    model_weights = config['model_weights']
     learning_rate = config['learning_rate']
+
+    iterations = config['iterations']
+    mini_batch_size = config['mini_batch_size']
     
     agents = agent.Agents(vocab, image_embedding_dim,
                           word_embedding_dim, learning_rate, temperature=10, batch_size=2)
@@ -93,19 +77,11 @@ def run_game(config):
     saver = tf.train.Saver()
     save_every = 10
 
-    ## Run the iterations of the game
-    iterations = 20000
-    mini_batch_size = 2
-
-    num_classes = len(image_dirs)
-
     wins = 0
     losses = 0
 
-    update_estimators_every = 50
-
     with tf.Session(config=tf.ConfigProto(gpu_options=(tf.GPUOptions(per_process_gpu_memory_fraction=0.7)))) as sess:
-        vgg = Vgg16(vgg16_weights)
+        vgg = Vgg16(model_weights)
 
         image_pl = tf.placeholder("float32", [1, 224, 224, 3])
         vgg.build(image_pl)

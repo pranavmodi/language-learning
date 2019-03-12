@@ -1,12 +1,15 @@
 import os
 import numpy as np
 import tensorflow as tf
+import keras as K
 import sys
-sys.path.append('tensorflow-vgg/')
-#import vgg16
 
-## This class contains the Sender Agent which recieves the activations of the target image and distractor image, maps them into vocabulary words and sends it the reciever
+
 class Agents:
+    """ This class contains the sender network which recieves the activations of the target image and distractor image, 
+        maps them into vocabulary words and sends it the reciever,  and also the reciever network which gets the word, 
+        maps it into it's embedding and selects an image to recieve the feedback.
+    """
 
     def __init__(self, vocab, image_embedding_dim, word_embedding_dim,
                  learning_rate, temperature=10, batch_size=32):
@@ -189,9 +192,9 @@ class Agents:
 
         word_probs = sess.run(self.word_probs, feed_dict={self.target_acts : target_acts, self.distractor_acts : distractor_acts})[0]
         print('word probs', word_probs)
-        word_probs = word_probs + [0.1, 0.1]
-        word_probs = word_probs / np.sum(word_probs)
-        print('new word probs', word_probs)
+        # word_probs = word_probs + [0.1, 0.1]
+        # word_probs = word_probs / np.sum(word_probs)
+        # print('new word probs', word_probs)
         
         word = np.random.choice(np.arange(len(self.vocab)), p=word_probs)
         word = np.reshape(np.array(word), [1, -1])

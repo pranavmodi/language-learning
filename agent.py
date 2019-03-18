@@ -1,14 +1,15 @@
 import os
 import numpy as np
 import tensorflow as tf
-import keras as K
+from tensorflow.keras.layers import Layer
 import sys
 
 
 class Agents:
-    """ This class contains the sender network which recieves the activations of the target image and distractor image, 
-        maps them into vocabulary words and sends it the reciever,  and also the reciever network which gets the word, 
-        maps it into it's embedding and selects an image to recieve the feedback.
+    """ This class contains the sender network which recieves the activations 
+        of the target image and distractor image, maps them into vocabulary words
+        and sends it the reciever,  and also the reciever network which gets the 
+        word, maps it into it's embedding and selects an image to recieve the feedback.
     """
 
     def __init__(self, vocab, image_embedding_dim, word_embedding_dim,
@@ -31,14 +32,12 @@ class Agents:
         self.selection = tf.placeholder(tf.int32, [1, None], "selection")
         self.reward = tf.placeholder(tf.float32, [None, 1], "reward")
 
-        self.epsilon = 0.1
         self.temperature = temperature
-
         self.learning_rate = learning_rate
 
-        print('now building the learning graph')
+        print('Building the learning grap...')
         self._build_learning_graph()
-        print('finished building the learning graph')
+        print('Completed the build.')
 
 
     def _build_learning_graph(self):
@@ -47,19 +46,28 @@ class Agents:
 
             ## Sender graph
             with tf.name_scope('ordered_embed'):
-                t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_t")
-                t_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]), trainable=True, name="t_bias")
-                d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim], stddev=0.01), name = "sender_d")
-                d_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]), trainable=True, name="d_bias")
+                t_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim],
+                                                         stddev=0.01), name = "sender_t")
+                t_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]),
+                                     trainable=True, name="t_bias")
+                d_weights = tf.Variable(tf.random_normal([1000, self.image_embedding_dim],
+                                                         stddev=0.01), name = "sender_d")
+                d_bias = tf.Variable(tf.zeros([1, self.image_embedding_dim]),
+                                     trainable=True, name="d_bias")
 
-                self.t_embed = tf.sigmoid(tf.matmul(self.target_acts, t_weights) + t_bias, name = "t_embed") ## Add bias?
-                self.d_embed = tf.sigmoid(tf.matmul(self.distractor_acts, d_weights) + d_bias, name = "d_embed") ## Add bias?
+                self.t_embed = tf.sigmoid(tf.matmul(self.target_acts,
+                                                    t_weights) + t_bias, name = "t_embed") ## Add bias?
+                self.d_embed = tf.sigmoid(tf.matmul(self.distractor_acts,
+                                                    d_weights) + d_bias, name = "d_embed") ## Add bias?
                 self.ordered_embed = tf.concat([self.t_embed, self.d_embed], axis=1)
 
             with tf.name_scope('word_probs'):
-                gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim), len(self.vocab)], stddev=0.01), name = "gsi_embed")
-                self.vocab_scores = tf.matmul(self.ordered_embed, gsi_embed, name="vocab_scores")
-                self.word_probs = tf.nn.softmax(tf.div(self.vocab_scores, self.temperature), name="word_probs")
+                gsi_embed = tf.Variable(tf.random_normal([(2 * self.image_embedding_dim),
+                                                          len(self.vocab)], stddev=0.01), name = "gsi_embed")
+                self.vocab_scores = tf.matmul(self.ordered_embed,
+                                              gsi_embed, name="vocab_scores")
+                self.word_probs = tf.nn.softmax(tf.div(self.vocab_scores,
+                                                       self.temperature), name="word_probs")
                 #self.word_probs = tf.Print(self.word_probs, [tf.shape(self.word_probs)], message='word probs shape')
 
             with tf.name_scope('sender_optimization'):
@@ -67,15 +75,8 @@ class Agents:
                 word_probs_flattened = tf.reshape(self.word_probs, [-1])
                 selected_inds = tf.range(0, tf.shape(self.word_probs)[0]) * len(self.vocab) + self.word
                 selected_word_prob = tf.gather(tf.reshape(self.word_probs, [-1]), selected_inds)
-                #selected_word_prob = tf.Print(selected_word_prob, [tf.shape(selected_word_prob)], message='selected word prob shape')
 
-                #self.reward = tf.Print(self.reward, [tf.shape(self.reward)], message='reward shape')
                 self.sender_loss = tf.reduce_mean(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), self.reward, name="sender_loss"))
-                #grads_and_vars = self.sender_optimizer.compute_gradients(self.sender_loss)
-
-                #self.sender_loss = tf.Print(self.sender_loss, [self.sender_loss], message='sender loss')
-                #self.sender_loss = tf.Print(self.sender_loss, [tf.shape(self.sender_loss)], message='shape of sender loss')
-                #gvp = [tf.Print(gv[0], [tf.shape(gv[0])], 'GV shape: ') for gv in grads_and_vars]
                 self.sender_train_op = self.sender_optimizer.minimize(self.sender_loss)
 
         with tf.name_scope('receiver'):

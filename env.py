@@ -57,7 +57,7 @@ class Environment:
         self.target = load_image(target_file)
         self.distractor = load_image(distractor_file)
 
-        return [self.target, self.distractor]
+        return (self.target, self.distractor)
 
 
     def send_word(self, comm_word):

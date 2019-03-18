@@ -1,4 +1,4 @@
-tensorflow==1.1.0
+tensorflow==2.0.0-alpha0
 numpy==1.14.5
-skimage==0.13.0
+scikit-image==0.14.2
 yaml==3.12

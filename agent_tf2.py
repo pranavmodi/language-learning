@@ -2,7 +2,7 @@ import os
 import sys
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Layer
+from tensorflow.keras.layers import Layer, Dense
 
 
 class LinearSigmoid(Layer):
@@ -38,15 +38,18 @@ class Agents:
         self.word_embedding_dim = word_embedding_dim
         self.temperature = temperature
         self.learning_rate = learning_rate
-        self.sender_embed = LinearSigmoid(1000, 10)
-        self.receiver_embed = LinearSigmoid(1000, 10)
+        # self.sender_embed = LinearSigmoid(1000, 10)
+        # self.receiver_embed = LinearSigmoid(1000, 10)
 
-        w_init = tf.random_normal_initializer(stddev=0.01)
-        gsi_shape = ((2 * self.image_embedding_dim), len(self.vocab))
-        self.gsi_embed = tf.Variable(initial_value=w_init(gsi_shape), dtype='float32', trainable=True)
-        ordered_embed = tf.concat([t_embed, d_embed], axis=1)
-        vocab_scores = tf.matmul(ordered_embed, self.gsi_embed)
-        self.word_probs = tf.nn.softmax(vocab_scores).numpy()[0]
+        self.w_init = tf.random_normal_initializer(stddev=0.01)
+        self.sender_receiver_model()
+        self.build_word_probs_model()
+
+        #gsi_shape = ((2 * self.image_embedding_dim), len(self.vocab))
+        # self.gsi_embed = tf.Variable(initial_value=w_init(gsi_shape), dtype='float32', trainable=True)
+        # ordered_embed = tf.concat([t_embed, d_embed], axis=1)
+        # vocab_scores = tf.matmul(ordered_embed, self.gsi_embed)
+        # self.word_probs = tf.nn.softmax(vocab_scores).numpy()[0]
         #self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
 
     def sender_receiver_model(self):
@@ -55,13 +58,16 @@ class Agents:
 
 
     def get_sender_word_probs(self, target_acts, distractor_acts):
+        t_embed = self.sender(target_acts)
+        d_embed = self.sender(distractor_acts)
         ordered_embed = tf.concat([t_embed, d_embed], axis=1)
-        self.word_probs_model(ordered_embed)
+        return self.word_probs_model(ordered_embed)
 
 
-    def sender_word_model(self):
+    def build_word_probs_model(self):
         self.word_probs_model = tf.keras.Sequential()
-        self.word_probs_model.add(layers.Dense(2, use_bias=True, input_shape=(2 * self.image_embedding_dim),
+        self.word_probs_model.add(Dense(2, use_bias=True,
+                                               input_shape=(None, 2*self.image_embedding_dim),
                                                activation='softmax'))
 
 

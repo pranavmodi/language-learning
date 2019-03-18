@@ -1,5 +1,5 @@
 vocab: 5
-iterations: 2
+iterations: 10
 mini_batch_size: 10
 word_embedding_dim: 10
 image_embedding_dim: 10

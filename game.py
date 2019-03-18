@@ -94,8 +94,10 @@ def run_game(config):
         target_acts = td_acts[0].reshape((1, 1000))
         distractor_acts = td_acts[1].reshape((1, 1000))
 
-        word_probs, selection = agents.get_sender_word(target_acts, distractor_acts)
-        print(word_probs, selection)
+        word_probs = agents.get_sender_word_probs(target_acts, distractor_acts)
+        print(word_probs)
+
+        continue
 
         reordering = np.array([0,1])
         random.shuffle(reordering)

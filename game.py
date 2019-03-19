@@ -54,6 +54,7 @@ def run_game(config):
     losses = 0
     model = VGG16()
 
+
     # intermediate_layer_model = Model(inputs=model.input,
     #                                  outputs=model.get_layer(layer_name).output)
 
@@ -83,38 +84,30 @@ def run_game(config):
 
         target_image, distractor_image = environ.get_images()
         target_image = target_image.reshape((1, 224, 224, 3))
-        distractor_image = target_image.reshape((1, 224, 224, 3))
+        distractor_image = distractor_image.reshape((1, 224, 224, 3))
         
         target_class = environ.target_class
 
         td_images = np.vstack([target_image, distractor_image])
         td_acts = model.predict(td_images)
-        print(td_acts.shape)
 
         target_acts = td_acts[0].reshape((1, 1000))
         distractor_acts = td_acts[1].reshape((1, 1000))
 
-        print(target_acts[:, 0:3])
-        print(distractor_acts[:, 0:3])
+        print(np.argmax(target_acts))
+        print(np.argmax(distractor_acts))
 
         word_probs, word = agents.get_sender_word_probs(target_acts, distractor_acts)
-        #print(word_probs, word)
 
         reordering = np.array([0,1])
         random.shuffle(reordering)
         target = np.where(reordering==0)[0]
 
-        assert (target_acts == distractor_acts).all()
+        #assert (target_acts == distractor_acts).all()
         img_array = [target_acts, distractor_acts]
         im1_acts, im2_acts = [img_array[reordering[i]] for i, img in enumerate(img_array)]
 
-        #print(np.sum(im1_acts), np.sum(im2_acts), 'fuck yes')
-        #print(im1_acts.shape, im2_acts.shape)
-
-        #assert (im1_acts == im2_acts)
-
         image_probs = agents.get_receiver_image_probs(word, im1_acts, im2_acts)
-
         print(image_probs, 'by receiver')
 
         #shuffled_acts = np.concatenate([i1, i2], axis=1)

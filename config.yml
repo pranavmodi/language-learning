@@ -1,8 +1,8 @@
-vocab: 5
-iterations: 10
+vocab: 2
+iterations: 1
 mini_batch_size: 10
-word_embedding_dim: 10
-image_embedding_dim: 10
+word_embedding_dim: 2
+image_embedding_dim: 2
 model_weights: vgg16.npy
 learning_rate: 0.2
 load_model: False

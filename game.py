@@ -1,10 +1,9 @@
 import sys
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import numpy as np
 from agent_tf2 import Agents
 import env
-#import skimage
 import random
 import tensorflow as tf
 import sys
@@ -90,29 +89,44 @@ def run_game(config):
 
         td_images = np.vstack([target_image, distractor_image])
         td_acts = model.predict(td_images)
+        print(td_acts.shape)
 
         target_acts = td_acts[0].reshape((1, 1000))
         distractor_acts = td_acts[1].reshape((1, 1000))
 
-        word_probs = agents.get_sender_word_probs(target_acts, distractor_acts)
-        print(word_probs)
+        print(target_acts[:, 0:3])
+        print(distractor_acts[:, 0:3])
 
-        continue
+        word_probs, word = agents.get_sender_word_probs(target_acts, distractor_acts)
+        #print(word_probs, word)
 
         reordering = np.array([0,1])
         random.shuffle(reordering)
         target = np.where(reordering==0)[0]
 
-        img_array = [target_acts, distractor_acts] 
-        i1, i2 = [img_array[reordering[i]] for i, img in enumerate(img_array)]
+        assert (target_acts == distractor_acts).all()
+        img_array = [target_acts, distractor_acts]
+        im1_acts, im2_acts = [img_array[reordering[i]] for i, img in enumerate(img_array)]
 
-        shuffled_acts = np.concatenate([i1, i2], axis=1)
+        #print(np.sum(im1_acts), np.sum(im2_acts), 'fuck yes')
+        #print(im1_acts.shape, im2_acts.shape)
+
+        #assert (im1_acts == im2_acts)
+
+        image_probs = agents.get_receiver_image_probs(word, im1_acts, im2_acts)
+
+        print(image_probs, 'by receiver')
+
+        #shuffled_acts = np.concatenate([i1, i2], axis=1)
 
         ## for Sender - take action in reinforcement learning terms
+
+        continue
 
         reward, word, selection, word_probs, image_probs = agents.show_images(sess, shuffled_acts, target_acts, distractor_acts, target, target_class)
 
         batch.append(Game(shuffled_acts, target_acts, distractor_acts, word_probs, image_probs, target, word, selection, reward))
+        print()
 
         if len(batch) > mini_batch_size:
             batch.pop(0)

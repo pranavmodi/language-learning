@@ -108,7 +108,7 @@ class Agents:
                 # im2_scores = tf.reduce_sum(im2_dot, 0)
                 # im2_scores = tf.reshape(im2_scores, [-1, 1])
 
-                im1_dot = tf.multiply(im1_embed, self.word_embed)
+                im1_dot = tf.multiply(im1_embed, self.word_embed)                
                 #im1_dot = tf.Print(im1_dot, [tf.shape(im1_dot)], message='im1 dot shape')
                 im1_sum = tf.reduce_sum(im1_dot, 1)
                 #im1_sum = tf.Print(im1_sum, [tf.shape(im1_sum)], message='im1_sum shape')

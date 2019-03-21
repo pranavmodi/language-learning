@@ -23,7 +23,6 @@ def shuffle_image_activations(im_acts):
 
 def run_game(config):
 
-    #tf.reset_default_graph()
     image_embedding_dim = config['image_embedding_dim']
     word_embedding_dim = config['word_embedding_dim']
     data_dir = config['data_dir']
@@ -55,28 +54,13 @@ def run_game(config):
     model = VGG16()
 
 
-    # intermediate_layer_model = Model(inputs=model.input,
-    #                                  outputs=model.get_layer(layer_name).output)
-
-    #image_pl = tf.placeholder("float32", [1, 224, 224, 3])
-    # image_pl = np.ones([1, 224, 224, 3], dtype='double')
-    # vgg.build(image_pl)
-
-    
-    # if load_model==True:
-    #     saver.restore(sess, load_path)
-    #     print("Restored model from : ", load_path)
-    # else:
-    #     sess.run(tf.global_variables_initializer())
-    #     print('Initialized the model')
-
     batch = []
-    Game = namedtuple("Game", ["im_acts", "target_acts", "distractor_acts", "word_probs", "image_probs", "target", "word", "selection", "reward"])
+    Game = namedtuple("Game", ["im_acts", "target_acts", "distractor_acts", "word_probs",
+                               "image_probs", "target", "word", "selection", "reward"])
     tot_reward = 0
     for i in range(iterations):
 
-        print("\rEpisode {}/{}".format(i, iterations), end="")
-        #sys.stdout.flush()
+        print('Episode {}/{}'.format(i, iterations), end='\n')
 
         if i % 10 == 0:
             print('last 10 interations performance ', tot_reward)
@@ -85,7 +69,7 @@ def run_game(config):
         target_image, distractor_image = environ.get_images()
         target_image = target_image.reshape((1, 224, 224, 3))
         distractor_image = distractor_image.reshape((1, 224, 224, 3))
-        
+
         target_class = environ.target_class
 
         td_images = np.vstack([target_image, distractor_image])
@@ -94,52 +78,32 @@ def run_game(config):
         target_acts = td_acts[0].reshape((1, 1000))
         distractor_acts = td_acts[1].reshape((1, 1000))
 
-        # print(np.argmax(target_acts), np.argmax(distractor_acts), target_acts[0, 669:671], distractor_acts[0, 669:671])
-
-        # print(target_acts[0, 0:5])
-        # print(distractor_acts[0, 0:5])
-
-        word_probs, word = agents.get_sender_word_probs(target_acts, distractor_acts)
+        word_probs, word_selected = agents.get_sender_word_probs(target_acts, distractor_acts)
 
         reordering = np.array([0,1])
         random.shuffle(reordering)
         target = np.where(reordering==0)[0]
 
-        #assert (target_acts == distractor_acts).all()
         img_array = [target_acts, distractor_acts]
         im1_acts, im2_acts = [img_array[reordering[i]] for i, img in enumerate(img_array)]
 
-        receiver_probs, selection = agents.get_receiver_selection(word, im1_acts, im2_acts)
-
+        receiver_probs, image_selected = agents.get_receiver_selection(word_selected, im1_acts, im2_acts)
 
         reward = 0.0
-        if target == selection:
+        if target == image_selected:
             reward = 1.0
-
-
-        print(receiver_probs, selection, reward)
-
-        #reward, word, selection, word_probs, image_probs = agents.show_images(sess, shuffled_acts, target_acts, distractor_acts, target, target_class)
 
         shuffled_acts = np.concatenate([im1_acts, im2_acts])
 
-        batch.append(Game(shuffled_acts, target_acts, distractor_acts, word_probs, receiver_probs, target, word, selection, reward))
+        batch.append(Game(shuffled_acts, target_acts, distractor_acts,
+                          word_probs, receiver_probs, target, word_selected, image_selected, reward))
 
-        print(i)
         if (i+1) % mini_batch_size == 0:
             print('updating the agent weights')
-            summary = agents.update(batch)
-            writer.add_summary(summary, i)
-        # if (i+1) % save_every == 0:
-        #     save_path = saver.save(sess, save_path)
-        #     print("Model saved in file: %s" % save_path)
 
-        #reward, word_text = agents.test_sender(sess, shuffled_acts, target, target_class)
         print(target_class, reward)
-        #reward = agents.test_receiver(sess, shuffled_acts, word, target_ind, target_class)
         tot_reward += reward
-        selection = 0
-        #agents.call_trial(sess, img_array, target_ind)
+        #selection = 0
 
 
 def main():

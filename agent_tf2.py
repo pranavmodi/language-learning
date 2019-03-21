@@ -96,10 +96,10 @@ class Agents:
         distractor_acts = np.reshape(distractor_acts, [-1, 1000])
         acts = np.reshape(acts, [-1, 2000])
         print(receiver_probs, receiver_probs.shape)
-        receiver_probs = np.reshape(receiver_probs, acts, [1, 2])
+        receiver_probs = np.reshape(receiver_probs, [-1, 2])
 
-        sender_loss = tf.reduce_mean(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), reward))
-        receiver_loss = tf.reduce_mean(-1 * tf.log(selected_image_prob) * self.reward)
+        sender_loss = tf.reduce_mean(-1 * tf.multiply(tf.transpose(tf.math.log(selected_word_prob)), reward))
+        receiver_loss = tf.reduce_mean(-1 * tf.math.log(selected_image_prob) * self.reward)
 
         with tf.GradientTape() as tape:
             sender_gradients = tape.gradients(sender_loss, self.sender.trainable_variables)

@@ -1,3 +1,0 @@
-[submodule "tensorflow-vgg"]
-	path = tensorflow-vgg
-	url = https://github.com/machrisaa/tensorflow-vgg.git

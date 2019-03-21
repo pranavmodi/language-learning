@@ -1,6 +1,6 @@
 vocab: 2
-iterations: 1
-mini_batch_size: 10
+iterations: 10
+mini_batch_size: 2
 word_embedding_dim: 2
 image_embedding_dim: 2
 model_weights: vgg16.npy

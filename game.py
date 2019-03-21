@@ -94,8 +94,10 @@ def run_game(config):
         target_acts = td_acts[0].reshape((1, 1000))
         distractor_acts = td_acts[1].reshape((1, 1000))
 
-        print(np.argmax(target_acts))
-        print(np.argmax(distractor_acts))
+        # print(np.argmax(target_acts), np.argmax(distractor_acts), target_acts[0, 669:671], distractor_acts[0, 669:671])
+
+        # print(target_acts[0, 0:5])
+        # print(distractor_acts[0, 0:5])
 
         word_probs, word = agents.get_sender_word_probs(target_acts, distractor_acts)
 
@@ -107,26 +109,26 @@ def run_game(config):
         img_array = [target_acts, distractor_acts]
         im1_acts, im2_acts = [img_array[reordering[i]] for i, img in enumerate(img_array)]
 
-        image_probs = agents.get_receiver_image_probs(word, im1_acts, im2_acts)
-        print(image_probs, 'by receiver')
+        receiver_probs, selection = agents.get_receiver_selection(word, im1_acts, im2_acts)
 
-        #shuffled_acts = np.concatenate([i1, i2], axis=1)
 
-        ## for Sender - take action in reinforcement learning terms
+        reward = 0.0
+        if target == selection:
+            reward = 1.0
 
-        continue
 
-        reward, word, selection, word_probs, image_probs = agents.show_images(sess, shuffled_acts, target_acts, distractor_acts, target, target_class)
+        print(receiver_probs, selection, reward)
 
-        batch.append(Game(shuffled_acts, target_acts, distractor_acts, word_probs, image_probs, target, word, selection, reward))
-        print()
+        #reward, word, selection, word_probs, image_probs = agents.show_images(sess, shuffled_acts, target_acts, distractor_acts, target, target_class)
 
-        if len(batch) > mini_batch_size:
-            batch.pop(0)
+        shuffled_acts = np.concatenate([im1_acts, im2_acts])
 
+        batch.append(Game(shuffled_acts, target_acts, distractor_acts, word_probs, receiver_probs, target, word, selection, reward))
+
+        print(i)
         if (i+1) % mini_batch_size == 0:
             print('updating the agent weights')
-            summary = agents.update(sess, batch)
+            summary = agents.update(batch)
             writer.add_summary(summary, i)
         # if (i+1) % save_every == 0:
         #     save_path = saver.save(sess, save_path)

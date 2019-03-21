@@ -60,20 +60,15 @@ class Agents:
                                                activation='softmax'))
 
 
-    def get_receiver_image_probs(self, word, im1_acts, im2_acts):
+    def get_receiver_selection(self, word, im1_acts, im2_acts):
         word_embed = tf.squeeze(tf.gather(self.vocab_embedding, self.word))
-        print(word_embed, 'word embed shape')
         im1_embed = self.receiver(im1_acts)
         im2_embed = self.receiver(im2_acts)
-        print(im1_embed, 'im1_embed')
-        print(im2_embed, 'im2_embed')
-        print(tf.multiply(im1_embed, word_embed), 'im1_embed_mult')
-        print(tf.multiply(im2_embed, word_embed), 'im2_embed_mult')
-        im1_score = tf.reduce_sum(tf.multiply(im1_embed, word_embed), axis=1).numpy()
-        im2_score = tf.reduce_sum(tf.multiply(im2_embed, word_embed), axis=1).numpy()
-        print(im1_score, im2_score, im1_score == im2_score, 'the scores')
+        im1_score = tf.reduce_sum(tf.multiply(im1_embed, word_embed), axis=1).numpy()[0]
+        im2_score = tf.reduce_sum(tf.multiply(im2_embed, word_embed), axis=1).numpy()[0]
         image_probs = tf.nn.softmax([im1_score, im2_score]).numpy()
-        return image_probs
+        selection = np.random.choice(np.arange(2), p=image_probs)
+        return image_probs, selection
       
 
     def build_sender_receiver_model(self):
@@ -89,6 +84,29 @@ class Agents:
         self.word = np.random.choice(np.arange(len(self.vocab)), p=self.word_probs)
         
         return self.word_probs, self.word
+
+    def update(self, batch):
+        acts, target_acts, distractor_acts, word_probs, \
+            receiver_probs, target, word, selection, reward = map(lambda x: np.squeeze(np.array(x)), zip(*batch))
+
+        reward = np.reshape(reward, [-1, 1])
+        selection = np.reshape(selection, [1, -1])
+        word = np.reshape(word, [1, -1])
+        target_acts = np.reshape(target_acts, [-1, 1000])
+        distractor_acts = np.reshape(distractor_acts, [-1, 1000])
+        acts = np.reshape(acts, [-1, 2000])
+        print(receiver_probs, receiver_probs.shape)
+        receiver_probs = np.reshape(receiver_probs, acts, [1, 2])
+
+        sender_loss = tf.reduce_mean(-1 * tf.multiply(tf.transpose(tf.log(selected_word_prob)), reward))
+        receiver_loss = tf.reduce_mean(-1 * tf.log(selected_image_prob) * self.reward)
+
+        with tf.GradientTape() as tape:
+            sender_gradients = tape.gradients(sender_loss, self.sender.trainable_variables)
+            self.sender_optimizer.apply_gradients(sender_gradients, self.sender.trainable_variables)
+
+            receiver_gradients = tape.gradients(receiver_loss, self.receiver.trainable_variables)
+            self.receiver_optimizer.apply_gradients(receiver_gradients, self.receiver.trainable_variables)
 
 
 if __name__=='__main__':
